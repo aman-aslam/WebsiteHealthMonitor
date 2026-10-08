@@ -19,6 +19,5 @@ WORKDIR /app
 COPY --from=build /app/publish .
 
 ENV ASPNETCORE_ENVIRONMENT=Production
-ENV ASPNETCORE_URLS=http://0.0.0.0:${PORT}
 
-ENTRYPOINT ["dotnet", "WebsiteHealthMonitor.dll"]
+CMD ["sh", "-c", "exec dotnet WebsiteHealthMonitor.dll --urls http://0.0.0.0:${PORT:-80}"]
