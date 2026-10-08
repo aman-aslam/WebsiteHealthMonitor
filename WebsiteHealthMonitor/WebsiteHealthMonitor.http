@@ -1,0 +1,6 @@
+@WebsiteHealthMonitor_HostAddress = http://localhost:5083
+
+GET {{WebsiteHealthMonitor_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

@@ -1,0 +1,610 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Website Health Dashboard</title>
+
+    <style>
+        body {
+            font-family: system-ui, Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f9fafb;
+        }
+
+        h1 {
+            margin-bottom: 4px;
+        }
+
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin: 12px 0;
+            flex-wrap: wrap;
+        }
+
+        .summary {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .pill {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 10px 18px;
+            font-size: 15px;
+        }
+
+            .pill strong {
+                font-size: 22px;
+                display: block;
+            }
+
+            .pill.ok strong {
+                color: #16a34a;
+            }
+
+            .pill.bad strong {
+                color: #dc2626;
+            }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 14px;
+        }
+
+        .card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-left: 6px solid #9ca3af;
+            border-radius: 8px;
+            padding: 14px;
+        }
+
+            .card.green {
+                border-left-color: #16a34a;
+            }
+
+            .card.yellow {
+                border-left-color: #eab308;
+            }
+
+            .card.red {
+                border-left-color: #dc2626;
+                background: #fef2f2;
+            }
+
+        .top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+
+            .top h2 {
+                margin: 0;
+                font-size: 18px;
+            }
+
+        .badge {
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 12px;
+            background: #16a34a;
+            white-space: nowrap;
+        }
+
+        .yellow .badge {
+            background: #ca8a04;
+        }
+
+        .red .badge {
+            background: #dc2626;
+        }
+
+        .card.pending .badge {
+            background: #9ca3af;
+        }
+
+        .url {
+            display: block;
+            margin: 8px 0;
+            font-size: 13px;
+            color: #2563eb;
+            word-break: break-all;
+        }
+
+        .meta {
+            font-size: 13px;
+            color: #374151;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .error {
+            color: #b91c1c;
+            font-size: 13px;
+            margin: 8px 0 0;
+        }
+
+        .checked {
+            display: block;
+            margin: 10px 0;
+            color: #6b7280;
+            font-size: 12px;
+        }
+
+        button {
+            padding: 6px 14px;
+            cursor: pointer;
+        }
+
+            button:disabled {
+                cursor: not-allowed;
+            }
+
+        #lastUpdated {
+            color: #6b7280;
+            font-size: 13px;
+        }
+
+        /* Load time box */
+        .load {
+            margin-top: 12px;
+            padding: 10px 12px;
+            border-radius: 6px;
+            background: #f3f4f6;
+            border: 1px solid #e5e7eb;
+            font-size: 13px;
+        }
+
+            .load .muted {
+                color: #6b7280;
+            }
+
+        .load-main {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+            .load-main strong {
+                font-size: 20px;
+            }
+
+        .tag {
+            color: #fff;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+
+        .load.fast {
+            background: #f0fdf4;
+            border-color: #bbf7d0;
+        }
+
+            .load.fast .tag {
+                background: #16a34a;
+            }
+
+        .load.avg {
+            background: #fefce8;
+            border-color: #fde68a;
+        }
+
+            .load.avg .tag {
+                background: #ca8a04;
+            }
+
+        .load.slow {
+            background: #fef2f2;
+            border-color: #fecaca;
+        }
+
+            .load.slow .tag {
+                background: #dc2626;
+            }
+
+        .load-sub {
+            margin-top: 6px;
+            color: #374151;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .load-note {
+            margin-top: 6px;
+            color: #92400e;
+        }
+
+        .load-time {
+            display: block;
+            margin-top: 6px;
+            color: #6b7280;
+            font-size: 11px;
+        }
+
+        .load.err {
+            background: #fef2f2;
+            border-color: #fecaca;
+            color: #b91c1c;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Website Health Dashboard</h1>
+
+    <div class="toolbar">
+        <button id="checkAllBtn" onclick="checkAll()">Check All Again</button>
+        <button id="loadBtn" onclick="measureLoadTimes()">Measure Load Time</button>
+        <span id="lastUpdated"></span>
+    </div>
+
+    <div id="summary" class="summary"></div>
+    <div id="results" class="grid">Loading...</div>
+
+    <script>
+        const REFRESH_SECONDS = 60;          // up/down check
+        const LOAD_REFRESH_MINUTES = 10;     // load time measurement
+        const FAST_MS = 3000;                // below this = Fast
+        const SLOW_MS = 8000;                // above this = Slow
+
+        let websites = [];
+        let isChecking = false;
+
+        // Load time results kept separately, so the 60s up/down refresh never erases them
+        // loadTimes[id] = { state: "waiting" | "measuring" | "done" | "error", data, message }
+        let loadTimes = {};
+        let isMeasuring = false;
+
+        function esc(value) {
+            return String(value ?? "")
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;");
+        }
+
+        function formatTime(iso) {
+            // Backend sends UTC; show in Indian time
+            const value = /Z|[+-]\d\d:\d\d$/.test(iso) ? iso : iso + "Z";
+            return new Date(value).toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata" });
+        }
+
+        function cardColor(site) {
+            if (site.pending) return "pending";
+            if (!site.isUp) return "red";
+            return site.status === "UP" ? "green" : "yellow"; // SLOW / WARNING = running but degraded
+        }
+
+        function fmtSec(ms) {
+            return (ms / 1000).toFixed(2) + " s";
+        }
+
+        function loadRating(ms) {
+            if (ms < FAST_MS) return { text: "FAST", cls: "fast" };
+            if (ms < SLOW_MS) return { text: "AVERAGE", cls: "avg" };
+            return { text: "SLOW", cls: "slow" };
+        }
+
+        // ---------- Up / down check ----------
+
+        async function checkAll() {
+            if (isChecking) return;
+            isChecking = true;
+
+            const button = document.getElementById("checkAllBtn");
+            const results = document.getElementById("results");
+
+            button.disabled = true;
+            button.innerText = "Checking...";
+
+            try {
+                // First load only: draw all cards immediately in "checking" state
+                if (websites.length === 0) {
+                    const listResponse = await fetch("/api/WebsiteHealth/sites");
+
+                    if (!listResponse.ok) {
+                        throw new Error(`API returned ${listResponse.status}`);
+                    }
+
+                    const list = await listResponse.json();
+
+                    websites = list.map(s => ({
+                        id: s.id,
+                        name: s.name,
+                        url: s.url,
+                        isUp: false,
+                        pending: true,
+                        status: "CHECKING",
+                        statusCode: null,
+                        responseTimeMs: null,
+                        errorMessage: null,
+                        checkedAt: new Date().toISOString()
+                    }));
+
+                    renderSummary();
+                    renderWebsites();
+
+                    // Start load time measurement in the background (does not block the checks)
+                    measureLoadTimes();
+                }
+
+                // Check every site in parallel; update each card as soon as it finishes
+                await Promise.all(websites.map(async site => {
+                    let updated;
+
+                    try {
+                        const response = await fetch(`/api/WebsiteHealth/check/${site.id}`);
+
+                        if (!response.ok) {
+                            throw new Error(`API returned ${response.status}`);
+                        }
+
+                        updated = await response.json();
+                    }
+                    catch (error) {
+                        updated = {
+                            ...site,
+                            isUp: false,
+                            pending: false,
+                            status: "ERROR",
+                            errorMessage: "Could not reach the monitor API: " + error.message,
+                            checkedAt: new Date().toISOString()
+                        };
+                    }
+
+                    const index = websites.findIndex(x => x.id === site.id);
+
+                    if (index !== -1) {
+                        websites[index] = updated;
+                    }
+
+                    renderSummary();
+                    renderWebsites();
+                }));
+
+                document.getElementById("lastUpdated").innerText =
+                    "Last updated: " + new Date().toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata" }) +
+                    " (status refreshes every " + REFRESH_SECONDS + "s, load time every " + LOAD_REFRESH_MINUTES + " min)";
+            }
+            catch (error) {
+                console.error(error);
+                results.innerHTML = `<p style="color:red">Error: ${esc(error.message)}</p>`;
+            }
+            finally {
+                isChecking = false;
+                button.disabled = false;
+                button.innerText = "Check All Again";
+            }
+        }
+
+        // ---------- Load time ----------
+
+        async function measureLoadTimes() {
+            if (isMeasuring || websites.length === 0) return;
+            isMeasuring = true;
+
+            const button = document.getElementById("loadBtn");
+            button.disabled = true;
+            button.innerText = "Measuring...";
+
+            const ids = websites.map(s => s.id);
+
+            // Keep the previous result visible until the new one arrives; only mark the first run as waiting
+            ids.forEach(id => {
+                if (!loadTimes[id] || loadTimes[id].state !== "done") {
+                    loadTimes[id] = { state: "waiting" };
+                }
+            });
+            renderWebsites();
+
+            // One site at a time: the server measures one page at a time anyway
+            for (const id of ids) {
+                const previous = loadTimes[id];
+                const hadResult = previous && previous.state === "done";
+
+                if (!hadResult) {
+                    loadTimes[id] = { state: "measuring" };
+                    renderWebsites();
+                }
+
+                try {
+                    const response = await fetch(`/api/WebsiteHealth/page-load-test?id=${id}`);
+                    const body = await response.json().catch(() => ({}));
+
+                    if (!response.ok) {
+                        throw new Error(body.error || body.message || `API returned ${response.status}`);
+                    }
+
+                    loadTimes[id] = { state: "done", data: body };
+                }
+                catch (error) {
+                    loadTimes[id] = hadResult
+                        ? previous // keep the last good value if one re-measure fails
+                        : { state: "error", message: error.message };
+                }
+
+                renderSummary();
+                renderWebsites();
+            }
+
+            isMeasuring = false;
+            button.disabled = false;
+            button.innerText = "Measure Load Time";
+        }
+
+        function renderLoad(site) {
+            const l = loadTimes[site.id];
+
+            if (!l) {
+                return `<div class="load"><span class="muted">Load time: not measured yet</span></div>`;
+            }
+
+            if (l.state === "waiting") {
+                return `<div class="load"><span class="muted">Load time: waiting in queue...</span></div>`;
+            }
+
+            if (l.state === "measuring") {
+                return `<div class="load"><span class="muted">Load time: measuring (can take up to 30 s)...</span></div>`;
+            }
+
+            if (l.state === "error") {
+                return `<div class="load err">Load time failed: ${esc(l.message)}</div>`;
+            }
+
+            const d = l.data;
+            const rating = loadRating(d.finishMs);
+
+            return `
+                    <div class="load ${rating.cls}">
+                        <div class="load-main">
+                            <span>Load time</span>
+                            <strong>${fmtSec(d.finishMs)}</strong>
+                            <span class="tag">${rating.text}</span>
+                        </div>
+
+                        <div class="load-sub">
+                            <span>Page load: ${d.loadMs != null ? fmtSec(d.loadMs) : "-"}</span>
+                            <span>DOM ready: ${d.domContentLoadedMs != null ? fmtSec(d.domContentLoadedMs) : "-"}</span>
+                            <span>${d.requestCount} requests</span>
+                            <span>${d.failedRequestCount} failed</span>
+                        </div>
+
+                        ${d.stillLoading ? `<div class="load-note">Some requests never finished, so this is the cap (30 s) not the true time.</div>` : ""}
+
+                        <small class="load-time">Measured: ${formatTime(d.measuredAt)}</small>
+                    </div>
+                `;
+        }
+
+        // ---------- Rendering ----------
+
+        function renderSummary() {
+            const total = websites.length;
+            const checking = websites.filter(x => x.pending).length;
+            const running = websites.filter(x => !x.pending && x.isUp).length;
+            const notRunning = websites.filter(x => !x.pending && !x.isUp).length;
+
+        document.getElementById("summary").innerHTML = `
+            <div class="pill">
+                Total
+                <strong>${total}</strong>
+            </div>
+
+            <div class="pill ok">
+                Running
+                <strong>${running}</strong>
+            </div>
+
+            <div class="pill bad">
+                Not Running
+                <strong>${notRunning}</strong>
+            </div>
+
+            ${checking > 0 ? `
+                <div class="pill">
+                    Checking
+                    <strong>${checking}</strong>
+                </div>
+            ` : ""}
+            `;
+        }
+
+        function renderWebsites() {
+            const results = document.getElementById("results");
+            results.innerHTML = "";
+
+            websites.forEach(site => {
+                const div = document.createElement("div");
+                div.className = "card " + cardColor(site);
+
+                const badgeText = site.pending
+                    ? "CHECKING..."
+                    : (site.isUp ? "RUNNING" : "NOT RUNNING");
+
+                div.innerHTML = `
+                        <div class="top">
+                            <h2>${esc(site.name)}</h2>
+                            <span class="badge">${badgeText}</span>
+                        </div>
+
+                        <a class="url" href="${esc(site.url)}" target="_blank" rel="noopener">${esc(site.url)}</a>
+
+                        ${site.pending ? "" : `
+                            <div class="meta">
+                                <span>Status: <strong>${esc(site.status)}</strong></span>
+                                <span>HTTP: ${site.statusCode ?? "-"}</span>
+                                <span>${site.responseTimeMs ?? 0} ms</span>
+                            </div>
+
+                            ${site.errorMessage ? `<p class="error">${esc(site.errorMessage)}</p>` : ""}
+
+                            <small class="checked">Checked: ${formatTime(site.checkedAt)}</small>
+                        `}
+
+                        ${renderLoad(site)}
+
+                        ${site.pending ? "" : `
+                            <div style="margin-top:10px">
+                                <button onclick="checkWebsite(${site.id}, this)">Check Again</button>
+                            </div>
+                        `}
+                    `;
+
+                results.appendChild(div);
+            });
+        }
+
+        async function checkWebsite(id, button) {
+            button.disabled = true;
+            button.innerText = "Checking...";
+
+            try {
+                const response = await fetch(`/api/WebsiteHealth/check/${id}`);
+
+                if (!response.ok) {
+                    throw new Error(`API returned ${response.status}`);
+                }
+
+                const updated = await response.json();
+                const index = websites.findIndex(x => x.id === id);
+
+                if (index !== -1) {
+                    websites[index] = updated;
+                }
+
+                renderSummary();
+                renderWebsites();
+            }
+            catch (error) {
+                console.error(error);
+                alert("Unable to check website: " + error.message);
+                button.disabled = false;
+                button.innerText = "Check Again";
+            }
+        }
+
+        // Up/down check on load, then every 60 seconds
+        checkAll();
+        setInterval(() => checkAll(), REFRESH_SECONDS * 1000);
+
+        // Load time re-measured every 10 minutes (first run is started by checkAll)
+        setInterval(() => measureLoadTimes(), LOAD_REFRESH_MINUTES * 60 * 1000);
+    </script>
+</body>
+</html>
