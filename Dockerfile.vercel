@@ -6,7 +6,10 @@ COPY . .
 
 RUN dotnet restore WebsiteHealthMonitor/WebsiteHealthMonitor.csproj
 
-RUN dotnet publish WebsiteHealthMonitor/WebsiteHealthMonitor.csproj -c Release -o /app/publish --no-restore
+RUN dotnet publish WebsiteHealthMonitor/WebsiteHealthMonitor.csproj \
+    -c Release \
+    -o /app/publish \
+    --no-restore
 
 
 FROM mcr.microsoft.com/playwright/dotnet:v1.63.0-noble
@@ -16,5 +19,6 @@ WORKDIR /app
 COPY --from=build /app/publish .
 
 ENV ASPNETCORE_ENVIRONMENT=Production
+ENV ASPNETCORE_URLS=http://0.0.0.0:${PORT}
 
-CMD ["sh", "-c", "dotnet WebsiteHealthMonitor.dll --urls http://0.0.0.0:${PORT}"]
+ENTRYPOINT ["dotnet", "WebsiteHealthMonitor.dll"]
