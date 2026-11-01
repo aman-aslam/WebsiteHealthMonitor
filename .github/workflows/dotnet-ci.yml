@@ -1,0 +1,39 @@
+name: .NET CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Restore and build .NET projects
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore and build discovered projects
+        shell: bash
+        run: |
+          projects=$(find . -type f -name '*.csproj' -not -path '*/bin/*' -not -path '*/obj/*' | sort)
+          if [ -z "$projects" ]; then
+            echo "No .NET project files were found."
+            exit 1
+          fi
+
+          while IFS= read -r project; do
+            echo "Building $project"
+            dotnet restore "$project"
+            dotnet build "$project" --configuration Release --no-restore
+          done <<< "$projects"
